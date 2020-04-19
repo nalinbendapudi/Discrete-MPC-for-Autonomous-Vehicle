@@ -1,4 +1,4 @@
-function [Y,T] = singleStepDynamics(U,x0)
+function Y = singleStepDynamics(U,x0)
 T=[0,0.01];
 [~,Y]=ode45(@(t,x)bikeSingleStep(x,U),T,x0);
 end

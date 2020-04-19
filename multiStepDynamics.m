@@ -1,4 +1,4 @@
-function [Y,T] = multiStepDynamics(U,x0)
+function Y = multiStepDynamics(U,x0)
 
 T=0:0.01:(size(U,1)-1)*0.01;
 [~,Y]=ode45(@(t,x)bikeMultiStep(t,x,T,U),T,x0);
