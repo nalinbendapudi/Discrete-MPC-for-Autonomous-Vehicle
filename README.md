@@ -8,5 +8,5 @@ a discrete MPC controller to follow this trajectory. We will solve the MPC optim
 quadprog.
 
 ## Usage instructions:
-Clone or download this repository
+Clone or download this repository  
 In MATLAB, run main.m
