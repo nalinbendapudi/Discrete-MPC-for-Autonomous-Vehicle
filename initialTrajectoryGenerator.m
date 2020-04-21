@@ -7,6 +7,7 @@ leftLine = TestTrack.bl;
 rightLine = TestTrack.br;
 centerLine = TestTrack.cline;
 heading = TestTrack.theta;
+%n=10;
 n = size(TestTrack.theta,2); % number of coordinates provided in the test-track data
 
 %% Hyper-parameters (Control Parameters)

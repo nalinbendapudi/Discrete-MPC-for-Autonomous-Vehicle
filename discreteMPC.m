@@ -5,6 +5,12 @@ load(initialTrajectoryFileName);
 Y_ref = InitialTraj.states;
 U_ref = InitialTraj.inputs;
 
+% Adding 5% noise in reference trajectory (This doesn't test our MPC
+% controller since MPC tracks reference traj regardless of the accuracy of
+% reference trajectory)
+% Y_ref = Y_ref.*(1+randn(size(Y_ref))/20);
+% U_ref = U_ref.*(1+randn(size(U_ref))/20);
+
 %% Reduced-order Dynamic Model
 
 nstates = 5;
@@ -38,31 +44,39 @@ Ca_f= (b*B_tf*C_tf*D_tf*m*g)/L;
 
 % Linearizing the bicycle model about the trajectory generated using the P controller
 
-A =   @(i)eye(5) + dt*  [0, 0, -u_0*sin(Y_ref(4,i))-Y_ref(5,i)*cos(Y_ref(4,i)), -sin(Y_ref(4,i)), 0;...
-         0, 0, -Y_ref(5,i)*sin(Y_ref(4,i))+u_0*cos(Y_ref(4,i)), cos(Y_ref(4,i)), 0;...
+A =   @(i)eye(5) + dt*  [0, 0, -sin(Y_ref(5,i)), -Y_ref(2,i)*sin(Y_ref(5,i)) - Y_ref(4,i)*cos(Y_ref(5,i)), 0;...
+         0, 0, cos(Y_ref(5,i)), -Y_ref(4,i)*sin(Y_ref(5,i))+Y_ref(2,i)*cos(Y_ref(5,i)), 0;...
          0, 0, 0, 0, 1;...
-         0, 0, 0, -(Ca_r+Ca_f)/(m*u_0), (Ca_r*b - Ca_f*a -m*u_0^2)/(m*u_0);...
-         0, 0, 0, (Ca_r*b - a*Ca_f)/(Iz*u_0), -((b^2*Ca_r)+ (a^2*Ca_f))/(Iz*u_0)];
+         0, 0,-(Ca_r+a*Ca_f*cos(U_ref(1,i)))/(m*Y_ref(2,i)), 0, -((Ca_r*b + Ca_f*a*cos(U_ref(1,i)))/(m*Y_ref(2,i)))-Y_ref(1,i);...
+         0, 0,(Ca_r*b - a*Ca_f*cos(U_ref(1,i)))/(Iz*Y_ref(2,i)), 0, -((b^2*Ca_r)+ (a^2*Ca_f*cos(U_ref(1,i))))/(Iz*Y_ref(2,i))];
 
 B =     @(i) dt*[0;...
           0;...
+          Ca_f*(cos(U_ref(1,i))-U_ref(1,i)*sin(U_ref(1,i))+((Y_ref(4,i)+a*Y_ref(6,i))*sin(U_ref(1,i))/Y_ref(2,i)))/m;...
           0;...
-          Ca_f/m;...
-          a*Ca_f/Iz];
-
+          a*Ca_f*(cos(U_ref(1,i))-U_ref(1,i)*sin(U_ref(1,i))+((Y_ref(4,i)+a*Y_ref(6,i))*sin(U_ref(1,i)))/Y_ref(2,i))];
+      
 %% Hyper-parameters
 
 npred = 10; % Number of time-steps in Prediction horizon
-Q = [1,1,0.5,1,1];  % state error 
-R = 0.1;            % control input
+Q = [10,10,0.5,500,1];  % state error 
+R = 15;              % control input
 
 %% Control Loop
 
 statesTranspose = initialState';
 for i = 1:length(T)-1
+    disp('##################################################');
+    i
+    disp('##################################################');
+    
 npred1 = min([npred,(length(T)-i)]);
 Ndec1= (nstates*(npred1+1))+(ninputs*npred1);
+% adding noise to the state matrix
+% erroneousState = statesTranspose(1:nstates+1, i)+ initialState'.*(0.05*randn(size(initialState')));
+% initcond(:,i) = erroneousState - Y_ref(1:nstates+1, i);
 initcond(:,i) = statesTranspose(1:nstates+1, i) - Y_ref(1:nstates+1, i);
+
 % beq = zeros([nstates*(npred1+1),1]);
 % Aeq = zeros([nstates*(npred1+1),(Ndec1)]);
 xsize = nstates*(npred1+1);
@@ -82,7 +96,7 @@ f = zeros([Ndec1,1]);
 
 [Z, ~] = quadprog(H,f,[],[],Aeq,beq,Lb,Ub);
 U_mpc = Z(((nstates*(npred1+1))+1): ((nstates*(npred1+1))+ninputs));
-inputs(:,i) = U_ref(:,i)+ [U_mpc;0];
+inputs(:,i) = U_ref(:,i)- [U_mpc;0];
 
 Y = singleStepDynamics(inputs(:,i),statesTranspose(1:nstates+1, i)');
 Y = Y';
